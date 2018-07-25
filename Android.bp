@@ -1,0 +1,37 @@
+cc_library {
+    name: "libarm-optimized-routines",
+    host_supported: true,
+    cflags: [
+        "-Werror",
+        "-O2",
+        "-DWANT_ROUNDING=0",
+        "-DWANT_ERRNO=0",
+    ],
+    srcs: [
+        "math/*.c",
+    ],
+    target: {
+        linux_bionic: {
+            enabled: true,
+        },
+    },
+    stl: "none",
+}
+
+// adb shell "find /data/nativetest/mathtest/ -iname '*.tst' -print0 | xargs -0 cat | /data/nativetest/mathtest/mathtest"
+// adb shell "find /data/nativetest64/mathtest/ -iname '*.tst' -print0 | xargs -0 cat | /data/nativetest64/mathtest/mathtest"
+cc_test {
+    name: "mathtest",
+    gtest: false,
+    host_supported: true,
+    cflags: ["-Werror", "-Wno-missing-braces"],
+    srcs: ["test/mathtest.c"],
+    data: ["test/testcases/directed/*.tst"],
+    static_libs: ["libarm-optimized-routines"],
+    local_include_dirs: ["math/include"],
+    target: {
+        linux_bionic: {
+            enabled: true,
+        },
+    },
+}
