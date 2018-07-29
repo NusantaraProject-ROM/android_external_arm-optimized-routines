@@ -11,6 +11,9 @@ cc_library {
         "math/*.c",
     ],
     target: {
+        darwin: {
+            enabled: false,
+        },
         linux_bionic: {
             enabled: true,
         },
@@ -30,6 +33,9 @@ cc_test {
     static_libs: ["libarm-optimized-routines"],
     local_include_dirs: ["math/include"],
     target: {
+        darwin: {
+            enabled: false,
+        },
         linux_bionic: {
             enabled: true,
         },
