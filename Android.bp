@@ -1,6 +1,7 @@
 cc_library {
     name: "libarm-optimized-routines",
     host_supported: true,
+    recovery_available: true,
     cflags: [
         "-Werror",
         "-O2",
@@ -10,7 +11,20 @@ cc_library {
         "-ffp-contract=fast",
     ],
     srcs: [
-        "math/*.c",
+        "math/cosf.c",
+        "math/exp2f.c",
+        "math/exp2f_data.c",
+        "math/expf.c",
+        "math/log2f.c",
+        "math/log2f_data.c",
+        "math/logf.c",
+        "math/logf_data.c",
+        "math/math_errf.c",
+        "math/powf.c",
+        "math/powf_log2_data.c",
+        "math/sincosf.c",
+        "math/sincosf_data.c",
+        "math/sinf.c",
     ],
     target: {
         darwin: {
@@ -30,7 +44,11 @@ cc_test {
     gtest: false,
     host_supported: true,
     cflags: ["-Werror", "-Wno-missing-braces"],
-    srcs: ["test/mathtest.c"],
+    srcs: [
+      "math/single/e_rem_pio2.c",
+      "math/single/rredf.c",
+      "test/mathtest.c"
+    ],
     data: ["test/testcases/directed/*.tst"],
     static_libs: ["libarm-optimized-routines"],
     local_include_dirs: ["math/include"],
