@@ -6,6 +6,8 @@ cc_library {
         "-O2",
         "-DWANT_ROUNDING=0",
         "-DWANT_ERRNO=0",
+        "-DFLT_EVAL_METHOD=0",
+        "-ffp-contract=fast",
     ],
     srcs: [
         "math/*.c",
