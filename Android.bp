@@ -56,7 +56,6 @@ cc_test {
     cflags: ["-Werror", "-Wno-missing-braces"],
     srcs: [
       "math/single/e_rem_pio2.c",
-      "math/single/rredf.c",
       "test/mathtest.c"
     ],
     data: ["test/testcases/directed/*.tst"],
