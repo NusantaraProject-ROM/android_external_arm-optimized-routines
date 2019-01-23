@@ -2,19 +2,7 @@
  * Double-precision x^y function.
  *
  * Copyright (c) 2018, Arm Limited.
- * SPDX-License-Identifier: Apache-2.0
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: MIT
  */
 
 #include <math.h>
@@ -146,7 +134,7 @@ specialcase (double_t tmp, uint64_t sbits, uint64_t ki)
       sbits -= 1009ull << 52;
       scale = asdouble (sbits);
       y = 0x1p1009 * (scale + scale * tmp);
-      return check_oflow (y);
+      return check_oflow (eval_as_double (y));
     }
   /* k < 0, need special care in the subnormal range.  */
   sbits += 1022ull << 52;
@@ -173,7 +161,7 @@ specialcase (double_t tmp, uint64_t sbits, uint64_t ki)
       force_eval_double (opt_barrier_double (0x1p-1022) * 0x1p-1022);
     }
   y = 0x1p-1022 * y;
-  return check_uflow (y);
+  return check_uflow (eval_as_double (y));
 }
 
 #define SIGN_BIAS (0x800 << EXP_TABLE_BITS)
@@ -181,7 +169,7 @@ specialcase (double_t tmp, uint64_t sbits, uint64_t ki)
 /* Computes sign*exp(x+xtail) where |xtail| < 2^-8/N and |xtail| <= |x|.
    The sign_bias argument is SIGN_BIAS or 0 and sets the sign to -1 or 1.  */
 static inline double
-exp_inline (double x, double xtail, uint32_t sign_bias)
+exp_inline (double_t x, double_t xtail, uint32_t sign_bias)
 {
   uint32_t abstop;
   uint64_t ki, idx, top, sbits;
@@ -253,7 +241,7 @@ exp_inline (double x, double xtail, uint32_t sign_bias)
   scale = asdouble (sbits);
   /* Note: tmp == 0 or |tmp| > 2^-200 and scale > 2^-739, so there
      is no spurious underflow here even without fma.  */
-  return scale + scale * tmp;
+  return eval_as_double (scale + scale * tmp);
 }
 
 /* Returns 0 if not int, 1 if odd int, 2 if even int.  The argument is

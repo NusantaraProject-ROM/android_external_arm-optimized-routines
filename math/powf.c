@@ -1,20 +1,8 @@
 /*
  * Single-precision pow function.
  *
- * Copyright (c) 2017, Arm Limited.
- * SPDX-License-Identifier: Apache-2.0
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright (c) 2017-2018, Arm Limited.
+ * SPDX-License-Identifier: MIT
  */
 
 #if WANT_SINGLEPREC
@@ -86,7 +74,7 @@ log2_inline (uint32_t ix)
 /* The output of log2 and thus the input of exp2 is either scaled by N
    (in case of fast toint intrinsics) or not.  The unscaled xd must be
    in [-1021,1023], sign_bias sets the sign of the result.  */
-static inline double_t
+static inline float
 exp2_inline (double_t xd, uint32_t sign_bias)
 {
   uint64_t ki, ski, t;
@@ -118,7 +106,7 @@ exp2_inline (double_t xd, uint32_t sign_bias)
   y = C[2] * r + 1;
   y = z * r2 + y;
   y = y * s;
-  return y;
+  return eval_as_float (y);
 }
 
 /* Returns 0 if not int, 1 if odd int, 2 if even int.  The argument is
@@ -211,7 +199,17 @@ powf (float x, float y)
     {
       /* |y*log(x)| >= 126.  */
       if (ylogx > 0x1.fffffffd1d571p+6 * POWF_SCALE)
+	/* |x^y| > 0x1.ffffffp127.  */
 	return __math_oflowf (sign_bias);
+      if (WANT_ROUNDING && WANT_ERRNO
+	  && ylogx > 0x1.fffffffa3aae2p+6 * POWF_SCALE)
+	/* |x^y| > 0x1.fffffep127, check if we round away from 0.  */
+	if ((!sign_bias
+	     && eval_as_float (1.0f + opt_barrier_float (0x1p-25f)) != 1.0f)
+	    || (sign_bias
+		&& eval_as_float (-1.0f - opt_barrier_float (0x1p-25f))
+		     != -1.0f))
+	  return __math_oflowf (sign_bias);
       if (ylogx <= -150.0 * POWF_SCALE)
 	return __math_uflowf (sign_bias);
 #if WANT_ERRNO_UFLOW
@@ -219,7 +217,7 @@ powf (float x, float y)
 	return __math_may_uflowf (sign_bias);
 #endif
     }
-  return (float) exp2_inline (ylogx, sign_bias);
+  return exp2_inline (ylogx, sign_bias);
 }
 #if USE_GLIBC_ABI
 strong_alias (powf, __powf_finite)
