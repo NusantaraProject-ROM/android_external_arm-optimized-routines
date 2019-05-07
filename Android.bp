@@ -2,6 +2,7 @@ cc_library {
     name: "libarm-optimized-routines",
     host_supported: true,
     recovery_available: true,
+    native_bridge_supported: true,
     cflags: [
         "-Werror",
         "-O2",
