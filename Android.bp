@@ -12,30 +12,7 @@ cc_library {
         "-ffp-contract=fast",
     ],
     srcs: [
-        "math/cosf.c",
-        "math/exp2.c",
-        "math/exp2f.c",
-        "math/exp2f_data.c",
-        "math/exp.c",
-        "math/exp_data.c",
-        "math/expf.c",
-        "math/log2.c",
-        "math/log2_data.c",
-        "math/log2f.c",
-        "math/log2f_data.c",
-        "math/log.c",
-        "math/log_data.c",
-        "math/logf.c",
-        "math/logf_data.c",
-        "math/math_err.c",
-        "math/math_errf.c",
-        "math/pow.c",
-        "math/pow_log_data.c",
-        "math/powf.c",
-        "math/powf_log2_data.c",
-        "math/sincosf.c",
-        "math/sincosf_data.c",
-        "math/sinf.c",
+        "math/*.c",
     ],
 
     // arch-specific settings
@@ -69,10 +46,9 @@ cc_test {
     host_supported: true,
     cflags: ["-Werror", "-Wno-missing-braces"],
     srcs: [
-      "math/single/e_rem_pio2.c",
-      "test/mathtest.c"
+      "math/test/mathtest.c"
     ],
-    data: ["test/testcases/directed/*.tst"],
+    data: ["math/test/testcases/directed/*.tst"],
     local_include_dirs: ["math/include"],
     target: {
         darwin: {
