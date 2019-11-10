@@ -5,6 +5,7 @@ cc_library {
     native_bridge_supported: true,
     cflags: [
         "-Werror",
+        "-Wno-unused-parameter",
         "-O2",
         // We're actually implementing bionic here, so we don't want <math.h>
         // to try to be helpful by renaming long double routines.
@@ -14,6 +15,7 @@ cc_library {
         "-DFLT_EVAL_METHOD=0",
         "-ffp-contract=fast",
     ],
+    local_include_dirs: ["math/include"],
     srcs: [
         "math/*.c",
     ],
