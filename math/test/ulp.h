@@ -125,6 +125,8 @@ static inline int T(call_long_fenv) (const struct fun *f, struct T(args) a,
   if (r != FE_TONEAREST)
     fesetround (r);
   feclearexcept (FE_ALL_EXCEPT);
+  volatile struct T(args) va = a; // TODO: barrier
+  a = va;
   RT(double) yl = T(call_long) (f, a);
   p->y = (RT(float)) yl;
   volatile RT(float) vy = p->y; // TODO: barrier
@@ -239,7 +241,7 @@ static inline int T(call_mpfr_fix) (const struct fun *f, struct T(args) a,
 #endif
 }
 
-static void T(cmp) (const struct fun *f, struct gen *gen,
+static int T(cmp) (const struct fun *f, struct gen *gen,
 		     const struct conf *conf)
 {
   double maxerr = 0;
@@ -255,11 +257,29 @@ static void T(cmp) (const struct fun *f, struct gen *gen,
       struct RT(ret) want;
       struct T(args) a = T(next) (gen);
       int exgot;
+      int exgot2;
       RT(float) ygot;
+      RT(float) ygot2;
+      int fail = 0;
       if (fenv)
 	T(call_fenv) (f, a, r, &ygot, &exgot);
       else
 	T(call_nofenv) (f, a, r, &ygot, &exgot);
+      if (f->twice) {
+	secondcall = 1;
+	if (fenv)
+	  T(call_fenv) (f, a, r, &ygot2, &exgot2);
+	else
+	  T(call_nofenv) (f, a, r, &ygot2, &exgot2);
+	secondcall = 0;
+	if (RT(asuint) (ygot) != RT(asuint) (ygot2))
+	  {
+	    fail = 1;
+	    cntfail++;
+	    T(printcall) (f, a);
+	    printf (" got %a then %a for same input\n", ygot, ygot2);
+	  }
+      }
       cnt++;
       int ok = use_mpfr
 		 ? T(call_mpfr_fix) (f, a, r, &want, ygot, exgot)
@@ -268,7 +288,6 @@ static void T(cmp) (const struct fun *f, struct gen *gen,
       if (!ok)
 	{
 	  int print = 0;
-	  int fail = 0;
 	  double err = RT(ulperr) (ygot, &want, r);
 	  double abserr = fabs (err);
 	  // TODO: count errors below accuracy limit.
@@ -278,8 +297,12 @@ static void T(cmp) (const struct fun *f, struct gen *gen,
 	    cnt2++;
 	  if (abserr > conf->errlim)
 	    {
-	      print = fail = 1;
-	      cntfail++;
+	      print = 1;
+	      if (!fail)
+		{
+		  fail = 1;
+		  cntfail++;
+		}
 	    }
 	  if (abserr > maxerr)
 	    {
@@ -335,4 +358,5 @@ static void T(cmp) (const struct fun *f, struct gen *gen,
 	  (unsigned long long) cnt1, 100.0 * cnt1 / cc,
 	  (unsigned long long) cnt2, 100.0 * cnt2 / cc,
 	  (unsigned long long) cntfail, 100.0 * cntfail / cc);
+  return !!cntfail;
 }
