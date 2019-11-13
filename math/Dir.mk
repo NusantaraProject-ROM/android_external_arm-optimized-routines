@@ -34,17 +34,19 @@ math-test-objs := $(math-test-base:$(srcdir)/%=build/%.o)
 math-test-host-base := $(basename $(math-test-host-srcs))
 math-test-host-objs := $(math-test-host-base:$(srcdir)/%=build/%.o)
 
-math-objs := \
+math-target-objs := \
 	$(math-lib-objs) \
 	$(math-test-objs) \
-	$(math-test-host-objs) \
+
+math-objs := $(math-target-objs) $(math-test-host-objs)
 
 all-math: $(math-libs) $(math-tools) $(math-includes)
 
 TESTS = $(wildcard $(srcdir)/math/test/testcases/directed/*.tst)
 RTESTS = $(wildcard $(srcdir)/math/test/testcases/random/*.tst)
 
-$(math-objs) $(math-objs:%.o=%.os): $(math-includes)
+$(math-target-objs) $(math-objs:%.o=%.os): $(math-includes)
+$(math-target-objs) $(math-objs:%.o=%.os): CFLAGS_ALL += $(math-cflags)
 build/math/test/mathtest.o: CFLAGS_ALL += -fmath-errno
 $(math-test-host-objs): CC = $(HOST_CC)
 $(math-test-host-objs): CFLAGS_ALL = $(HOST_CFLAGS)
@@ -71,8 +73,9 @@ build/bin/mathtest: build/math/test/mathtest.o build/lib/libmathlib.a
 build/bin/mathbench: build/math/test/mathbench.o build/lib/libmathlib.a
 	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -static -o $@ $^ $(LDLIBS)
 
-build/bin/mathbench_libc: build/math/test/mathbench.o
-	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -static -o $@ $^ $(LDLIBS)
+# This is not ideal, but allows custom symbols in mathbench to get resolved.
+build/bin/mathbench_libc: build/math/test/mathbench.o build/lib/libmathlib.a
+	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -static -o $@ $< $(LDLIBS) -lc build/lib/libmathlib.a -lm
 
 build/bin/ulp: build/math/test/ulp.o build/lib/libmathlib.a
 	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -static -o $@ $^ $(LDLIBS)
@@ -84,13 +87,13 @@ build/bin/%.sh: $(srcdir)/math/test/%.sh
 	cp $< $@
 
 check-math-test: $(math-tools)
-	cat $(TESTS) | $(EMULATOR) build/bin/mathtest
+	cat $(TESTS) | $(EMULATOR) build/bin/mathtest $(MATHTESTFLAGS)
 
 check-math-rtest: $(math-host-tools) $(math-tools)
-	cat $(RTESTS) | build/bin/rtest | $(EMULATOR) build/bin/mathtest
+	cat $(RTESTS) | build/bin/rtest | $(EMULATOR) build/bin/mathtest $(MATHTESTFLAGS)
 
 check-math-ulp: $(math-tools)
-	build/bin/runulp.sh $(EMULATOR)
+	ULPFLAGS="$(ULPFLAGS)" build/bin/runulp.sh $(EMULATOR)
 
 check-math: check-math-test check-math-rtest check-math-ulp
 

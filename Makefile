@@ -30,6 +30,7 @@ AR = $(CROSS_COMPILE)ar
 RANLIB = $(CROSS_COMPILE)ranlib
 INSTALL = install
 
+CFLAGS_SHARED = -fPIC
 CFLAGS_ALL = -Ibuild/include $(CPPFLAGS) $(CFLAGS)
 LDFLAGS_ALL = $(LDFLAGS)
 
@@ -37,8 +38,8 @@ all:
 
 -include config.mk
 
-include math/Dir.mk
-include string/Dir.mk
+include $(srcdir)/math/Dir.mk
+include $(srcdir)/string/Dir.mk
 
 all: all-math all-string
 
@@ -50,7 +51,7 @@ $(ALL_LIBS) $(ALL_TOOLS) $(ALL_OBJS) $(ALL_OBJS:%.o=%.os) $(ALL_INCLUDES): | $(A
 $(ALL_DIRS):
 	mkdir -p $@
 
-$(ALL_OBJS:%.o=%.os): CFLAGS_ALL += -fPIC
+$(ALL_OBJS:%.o=%.os): CFLAGS_ALL += $(CFLAGS_SHARED)
 
 build/%.o: $(srcdir)/%.S
 	$(CC) $(CFLAGS_ALL) -c -o $@ $<
