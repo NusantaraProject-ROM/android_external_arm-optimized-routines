@@ -19,7 +19,7 @@ cc_defaults {
 }
 
 cc_library {
-    name: "libarm-optimized-routines",
+    name: "libarm-optimized-routines-math",
     defaults: ["arm-optimized-routines-defaults"],
     recovery_available: true,
     native_bridge_supported: true,
