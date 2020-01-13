@@ -10,6 +10,8 @@
  * ARMv8-a, AArch64
  */
 
+#include "../asmdefs.h"
+
 /* Arguments and results.  */
 #define srcin		x0
 #define len		x0
@@ -30,36 +32,28 @@
 #define pos		x13
 #define limit_wd	x14
 
-	.macro def_fn f p2align=0
-	.text
-	.p2align \p2align
-	.global \f
-	.type \f, %function
-\f:
-	.endm
-
 #define REP8_01 0x0101010101010101
 #define REP8_7f 0x7f7f7f7f7f7f7f7f
 #define REP8_80 0x8080808080808080
 
 	.text
 	.p2align	6
-.Lstart:
+L(start):
 	/* Pre-pad to ensure critical loop begins an icache line.  */
 	.rep 7
 	nop
 	.endr
 	/* Put this code here to avoid wasting more space with pre-padding.  */
-.Lhit_limit:
+L(hit_limit):
 	mov	len, limit
 	ret
 
-def_fn __strnlen_aarch64
-	cbz	limit, .Lhit_limit
+ENTRY_ALIGN (__strnlen_aarch64, 0)
+	cbz	limit, L(hit_limit)
 	mov	zeroones, #REP8_01
 	bic	src, srcin, #15
 	ands	tmp1, srcin, #15
-	b.ne	.Lmisaligned
+	b.ne	L(misaligned)
 	/* Calculate the number of full and partial words -1.  */
 	sub	limit_wd, limit, #1	/* Limit != 0, so no underflow.  */
 	lsr	limit_wd, limit_wd, #4	/* Convert to Qwords.  */
@@ -73,9 +67,9 @@ def_fn __strnlen_aarch64
 	   cycle, as we get much better parallelism out of the operations.  */
 
 	/* Start of critial section -- keep to one 64Byte cache line.  */
-.Lloop:
+L(loop):
 	ldp	data1, data2, [src], #16
-.Lrealigned:
+L(realigned):
 	sub	tmp1, data1, zeroones
 	orr	tmp2, data1, #REP8_7f
 	sub	tmp3, data2, zeroones
@@ -85,24 +79,24 @@ def_fn __strnlen_aarch64
 	subs	limit_wd, limit_wd, #1
 	orr	tmp1, has_nul1, has_nul2
 	ccmp	tmp1, #0, #0, pl	/* NZCV = 0000  */
-	b.eq	.Lloop
+	b.eq	L(loop)
 	/* End of critical section -- keep to one 64Byte cache line.  */
 
 	orr	tmp1, has_nul1, has_nul2
-	cbz	tmp1, .Lhit_limit	/* No null in final Qword.  */
+	cbz	tmp1, L(hit_limit)	/* No null in final Qword.  */
 
 	/* We know there's a null in the final Qword.  The easiest thing
 	   to do now is work out the length of the string and return
 	   MIN (len, limit).  */
 
 	sub	len, src, srcin
-	cbz	has_nul1, .Lnul_in_data2
+	cbz	has_nul1, L(nul_in_data2)
 #ifdef __AARCH64EB__
 	mov	data2, data1
 #endif
 	sub	len, len, #8
 	mov	has_nul2, has_nul1
-.Lnul_in_data2:
+L(nul_in_data2):
 #ifdef __AARCH64EB__
 	/* For big-endian, carry propagation (if the final byte in the
 	   string is 0x01) means we cannot use has_nul directly.  The
@@ -121,7 +115,7 @@ def_fn __strnlen_aarch64
 	csel	len, len, limit, ls		/* Return the lower value.  */
 	ret
 
-.Lmisaligned:
+L(misaligned):
 	/* Deal with a partial first word.
 	   We're doing two things in parallel here;
 	   1) Calculate the number of words (but avoiding overflow if
@@ -156,5 +150,6 @@ def_fn __strnlen_aarch64
 
 	csinv	data1, data1, xzr, le
 	csel	data2, data2, data2a, le
-	b	.Lrealigned
-	.size	__strnlen_aarch64, . - .Lstart	/* Include pre-padding in size.  */
+	b	L(realigned)
+
+END (__strnlen_aarch64)
