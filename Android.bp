@@ -5,21 +5,29 @@ cc_defaults {
         "-Werror",
         "-Wno-unused-parameter",
         "-O2",
+        "-ffp-contract=fast",
+        "-fno-math-errno",
+
+        // bionic configuration.
+
         // We're actually implementing bionic here, so we don't want <math.h>
         // to try to be helpful by renaming long double routines.
         "-D__BIONIC_LP32_USE_LONG_DOUBLE",
-        "-DWANT_ROUNDING=0",
-        "-DWANT_ERRNO=0",
-        "-DWANT_VMATH=0",
         "-DFLT_EVAL_METHOD=0",
-        "-ffp-contract=fast",
-        "-fno-math-errno",
+
+        // arm-optimized-routines configuration.
+
+        // BSD libm doesn't set errno, and bionic was based on the BSDs.
+        // https://github.com/ARM-software/optimized-routines/issues/16#issuecomment-572009659
+        "-DWANT_ERRNO=0",
+        // TODO: we may want the vector code in future, but it's not ready yet.
+        "-DWANT_VMATH=0",
     ],
     local_include_dirs: ["math/include"],
 }
 
 cc_library {
-    name: "libarm-optimized-routines",
+    name: "libarm-optimized-routines-math",
     defaults: ["arm-optimized-routines-defaults"],
     recovery_available: true,
     native_bridge_supported: true,
