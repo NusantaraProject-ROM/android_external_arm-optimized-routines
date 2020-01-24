@@ -1,8 +1,6 @@
-cc_library {
-    name: "libarm-optimized-routines",
+cc_defaults {
+    name: "arm-optimized-routines-defaults",
     host_supported: true,
-    recovery_available: true,
-    native_bridge_supported: true,
     cflags: [
         "-Werror",
         "-Wno-unused-parameter",
@@ -12,10 +10,19 @@ cc_library {
         "-D__BIONIC_LP32_USE_LONG_DOUBLE",
         "-DWANT_ROUNDING=0",
         "-DWANT_ERRNO=0",
+        "-DWANT_VMATH=0",
         "-DFLT_EVAL_METHOD=0",
         "-ffp-contract=fast",
+        "-fno-math-errno",
     ],
     local_include_dirs: ["math/include"],
+}
+
+cc_library {
+    name: "libarm-optimized-routines",
+    defaults: ["arm-optimized-routines-defaults"],
+    recovery_available: true,
+    native_bridge_supported: true,
     srcs: [
         "math/*.c",
     ],
@@ -47,14 +54,11 @@ cc_library {
 // adb shell "/data/nativetest/mathtest/mathtest /data/nativetest/mathtest/test/testcases/directed/*"
 cc_test {
     name: "mathtest",
+    defaults: ["arm-optimized-routines-defaults"],
     gtest: false,
-    host_supported: true,
-    cflags: ["-Werror", "-Wno-missing-braces"],
-    srcs: [
-      "math/test/mathtest.c"
-    ],
+    cflags: ["-Wno-missing-braces"],
+    srcs: ["math/test/mathtest.c"],
     data: ["math/test/testcases/directed/*.tst"],
-    local_include_dirs: ["math/include"],
     target: {
         darwin: {
             enabled: false,
@@ -63,4 +67,26 @@ cc_test {
             enabled: true,
         },
     },
+}
+
+cc_test {
+    name: "ulp",
+    defaults: ["arm-optimized-routines-defaults"],
+    gtest: false,
+    srcs: ["math/test/ulp.c"],
+    data: ["math/test/runulp.sh"],
+}
+
+sh_test {
+    name: "arm-optimized-routines-tests",
+    src: "run-arm-optimized-routines-tests-on-android.sh",
+    filename: "run-arm-optimized-routines-tests-on-android.sh",
+    test_suites: ["general-tests"],
+    host_supported: true,
+    device_supported: false,
+    test_config: "arm-optimized-routines-tests.xml",
+    target_required: [
+        "mathtest",
+        "ulp",
+    ],
 }
