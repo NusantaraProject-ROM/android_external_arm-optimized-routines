@@ -29,6 +29,7 @@ cc_defaults {
 cc_library {
     name: "libarm-optimized-routines-math",
     defaults: ["arm-optimized-routines-defaults"],
+    ramdisk_available: true,
     recovery_available: true,
     native_bridge_supported: true,
     srcs: [
