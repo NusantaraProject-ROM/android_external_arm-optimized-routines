@@ -1,7 +1,7 @@
 /*
- * strchr - find a character in a string
+ * strrchr - find last position of a character in a string.
  *
- * Copyright (c) 2014-2019, Arm Limited.
+ * Copyright (c) 2014-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -23,6 +23,12 @@
 #define	tmp1		x3
 #define wtmp2		w4
 #define tmp3		x5
+#define src_match	x6
+#define src_offset	x7
+#define const_m1	x8
+#define tmp4		x9
+#define nul_match	x10
+#define chr_match	x11
 
 #define vrepchr		v0
 #define vdata1		v1
@@ -48,9 +54,7 @@
    in the original string a count_trailing_zeros() operation will
    identify exactly which byte is causing the termination, and why.  */
 
-/* Locals and temporaries.  */
-
-ENTRY (__strchr_aarch64)
+ENTRY (__strrchr_aarch64)
 	/* Magic constant 0x40100401 to allow us to identify which lane
 	   matches the requested byte.  Magic constant 0x80200802 used
 	   similarly for NUL termination.  */
@@ -59,9 +63,10 @@ ENTRY (__strchr_aarch64)
 	dup	vrepchr.16b, chrin
 	bic	src, srcin, #31		/* Work with aligned 32-byte hunks.  */
 	dup	vrepmask_c.4s, wtmp2
+	mov	src_offset, #0
 	ands	tmp1, srcin, #31
 	add	vrepmask_0.4s, vrepmask_c.4s, vrepmask_c.4s /* equiv: lsl #1 */
-	b.eq	L(loop)
+	b.eq	L(aligned)
 
 	/* Input string is not 32-byte aligned.  Rather than forcing
 	   the padding bytes to a safe value, we calculate the syndrome
@@ -74,58 +79,69 @@ ENTRY (__strchr_aarch64)
 	cmeq	vhas_nul2.16b, vdata2.16b, #0
 	cmeq	vhas_chr2.16b, vdata2.16b, vrepchr.16b
 	and	vhas_nul1.16b, vhas_nul1.16b, vrepmask_0.16b
-	and	vhas_nul2.16b, vhas_nul2.16b, vrepmask_0.16b
 	and	vhas_chr1.16b, vhas_chr1.16b, vrepmask_c.16b
+	and	vhas_nul2.16b, vhas_nul2.16b, vrepmask_0.16b
 	and	vhas_chr2.16b, vhas_chr2.16b, vrepmask_c.16b
-	orr	vend1.16b, vhas_nul1.16b, vhas_chr1.16b
-	orr	vend2.16b, vhas_nul2.16b, vhas_chr2.16b
+	addp	vhas_nul1.16b, vhas_nul1.16b, vhas_nul2.16b	// 256->128
+	addp	vhas_chr1.16b, vhas_chr1.16b, vhas_chr2.16b	// 256->128
+	addp	vhas_nul1.16b, vhas_nul1.16b, vhas_nul1.16b	// 128->64
+	addp	vhas_chr1.16b, vhas_chr1.16b, vhas_chr1.16b	// 128->64
+	mov	nul_match, vhas_nul1.d[0]
 	lsl	tmp1, tmp1, #1
-	addp	vend1.16b, vend1.16b, vend2.16b		// 256->128
-	mov	tmp3, #~0
-	addp	vend1.16b, vend1.16b, vend2.16b		// 128->64
-	lsr	tmp1, tmp3, tmp1
+	mov	const_m1, #~0
+	mov	chr_match, vhas_chr1.d[0]
+	lsr	tmp3, const_m1, tmp1
 
-	mov	tmp3, vend1.d[0]
-	bic	tmp1, tmp3, tmp1	// Mask padding bits.
-	cbnz	tmp1, L(tail)
+	bic	nul_match, nul_match, tmp3	// Mask padding bits.
+	bic	chr_match, chr_match, tmp3	// Mask padding bits.
+	cbnz	nul_match, L(tail)
 
 L(loop):
+	cmp	chr_match, #0
+	csel	src_match, src, src_match, ne
+	csel	src_offset, chr_match, src_offset, ne
+L(aligned):
 	ld1	{vdata1.16b, vdata2.16b}, [src], #32
 	cmeq	vhas_nul1.16b, vdata1.16b, #0
 	cmeq	vhas_chr1.16b, vdata1.16b, vrepchr.16b
 	cmeq	vhas_nul2.16b, vdata2.16b, #0
 	cmeq	vhas_chr2.16b, vdata2.16b, vrepchr.16b
-	/* Use a fast check for the termination condition.  */
-	orr	vend1.16b, vhas_nul1.16b, vhas_chr1.16b
-	orr	vend2.16b, vhas_nul2.16b, vhas_chr2.16b
-	orr	vend1.16b, vend1.16b, vend2.16b
-	addp	vend1.2d, vend1.2d, vend1.2d
-	mov	tmp1, vend1.d[0]
-	cbz	tmp1, L(loop)
-
-	/* Termination condition found.  Now need to establish exactly why
-	   we terminated.  */
-	and	vhas_nul1.16b, vhas_nul1.16b, vrepmask_0.16b
-	and	vhas_nul2.16b, vhas_nul2.16b, vrepmask_0.16b
+	addp	vend1.16b, vhas_nul1.16b, vhas_nul2.16b	// 256->128
 	and	vhas_chr1.16b, vhas_chr1.16b, vrepmask_c.16b
 	and	vhas_chr2.16b, vhas_chr2.16b, vrepmask_c.16b
-	orr	vend1.16b, vhas_nul1.16b, vhas_chr1.16b
-	orr	vend2.16b, vhas_nul2.16b, vhas_chr2.16b
-	addp	vend1.16b, vend1.16b, vend2.16b		// 256->128
-	addp	vend1.16b, vend1.16b, vend2.16b		// 128->64
+	addp	vhas_chr1.16b, vhas_chr1.16b, vhas_chr2.16b	// 256->128
+	addp	vend1.16b, vend1.16b, vend1.16b	// 128->64
+	addp	vhas_chr1.16b, vhas_chr1.16b, vhas_chr1.16b	// 128->64
+	mov	nul_match, vend1.d[0]
+	mov	chr_match, vhas_chr1.d[0]
+	cbz	nul_match, L(loop)
 
-	mov	tmp1, vend1.d[0]
+	and	vhas_nul1.16b, vhas_nul1.16b, vrepmask_0.16b
+	and	vhas_nul2.16b, vhas_nul2.16b, vrepmask_0.16b
+	addp	vhas_nul1.16b, vhas_nul1.16b, vhas_nul2.16b
+	addp	vhas_nul1.16b, vhas_nul1.16b, vhas_nul1.16b
+	mov	nul_match, vhas_nul1.d[0]
+
 L(tail):
-	/* Count the trailing zeros, by bit reversing...  */
-	rbit	tmp1, tmp1
-	/* Re-bias source.  */
-	sub	src, src, #32
-	clz	tmp1, tmp1	/* And counting the leading zeros.  */
-	/* Tmp1 is even if the target charager was found first.  Otherwise
-	   we've found the end of string and we weren't looking for NUL.  */
-	tst	tmp1, #1
-	add	result, src, tmp1, lsr #1
-	csel	result, result, xzr, eq
+	/* Work out exactly where the string ends.  */
+	sub	tmp4, nul_match, #1
+	eor	tmp4, tmp4, nul_match
+	ands	chr_match, chr_match, tmp4
+	/* And pick the values corresponding to the last match.  */
+	csel	src_match, src, src_match, ne
+	csel	src_offset, chr_match, src_offset, ne
+
+	/* Count down from the top of the syndrome to find the last match.  */
+	clz	tmp3, src_offset
+	/* Src_match points beyond the word containing the match, so we can
+	   simply subtract half the bit-offset into the syndrome.  Because
+	   we are counting down, we need to go back one more character.  */
+	add	tmp3, tmp3, #2
+	sub	result, src_match, tmp3, lsr #1
+	/* But if the syndrome shows no match was found, then return NULL.  */
+	cmp	src_offset, #0
+	csel	result, result, xzr, ne
+
 	ret
 
-END (__strchr_aarch64)
+END (__strrchr_aarch64)
