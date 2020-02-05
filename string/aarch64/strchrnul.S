@@ -11,6 +11,8 @@
  * Neon Available.
  */
 
+#include "../asmdefs.h"
+
 /* Arguments and results.  */
 #define srcin		x0
 #define chrin		w1
@@ -44,15 +46,7 @@
 
 /* Locals and temporaries.  */
 
-	.macro def_fn f p2align=0
-	.text
-	.p2align \p2align
-	.global \f
-	.type \f, %function
-\f:
-	.endm
-
-def_fn __strchrnul_aarch64
+ENTRY (__strchrnul_aarch64)
 	/* Magic constant 0x40100401 to allow us to identify which lane
 	   matches the termination condition.  */
 	mov	wtmp2, #0x0401
@@ -61,7 +55,7 @@ def_fn __strchrnul_aarch64
 	bic	src, srcin, #31		/* Work with aligned 32-byte hunks.  */
 	dup	vrepmask.4s, wtmp2
 	ands	tmp1, srcin, #31
-	b.eq	.Lloop
+	b.eq	L(loop)
 
 	/* Input string is not 32-byte aligned.  Rather than forcing
 	   the padding bytes to a safe value, we calculate the syndrome
@@ -85,9 +79,9 @@ def_fn __strchrnul_aarch64
 
 	mov	tmp3, vend1.d[0]
 	bic	tmp1, tmp3, tmp1	// Mask padding bits.
-	cbnz	tmp1, .Ltail
+	cbnz	tmp1, L(tail)
 
-.Lloop:
+L(loop):
 	ld1	{vdata1.16b, vdata2.16b}, [src], #32
 	cmeq	vhas_nul1.16b, vdata1.16b, #0
 	cmeq	vhas_chr1.16b, vdata1.16b, vrepchr.16b
@@ -99,7 +93,7 @@ def_fn __strchrnul_aarch64
 	orr	vend1.16b, vhas_chr1.16b, vhas_chr2.16b
 	addp	vend1.2d, vend1.2d, vend1.2d
 	mov	tmp1, vend1.d[0]
-	cbz	tmp1, .Lloop
+	cbz	tmp1, L(loop)
 
 	/* Termination condition found.  Now need to establish exactly why
 	   we terminated.  */
@@ -109,7 +103,7 @@ def_fn __strchrnul_aarch64
 	addp	vend1.16b, vend1.16b, vend1.16b		// 128->64
 
 	mov	tmp1, vend1.d[0]
-.Ltail:
+L(tail):
 	/* Count the trailing zeros, by bit reversing...  */
 	rbit	tmp1, tmp1
 	/* Re-bias source.  */
@@ -119,4 +113,4 @@ def_fn __strchrnul_aarch64
 	add	result, src, tmp1, lsr #1
 	ret
 
-	.size	__strchrnul_aarch64, . - __strchrnul_aarch64
+END (__strchrnul_aarch64)
