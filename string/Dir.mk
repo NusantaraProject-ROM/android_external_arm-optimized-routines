@@ -27,6 +27,7 @@ string-tests := \
 	build/bin/test/memmove \
 	build/bin/test/memset \
 	build/bin/test/memchr \
+	build/bin/test/memrchr \
 	build/bin/test/memcmp \
 	build/bin/test/strcpy \
 	build/bin/test/stpcpy \
@@ -61,6 +62,8 @@ all-string: $(string-libs) $(string-tests) $(string-benches) $(string-includes)
 
 $(string-objs): $(string-includes)
 $(string-objs): CFLAGS_ALL += $(string-cflags)
+
+$(string-test-objs): CFLAGS_ALL += -D_GNU_SOURCE
 
 build/lib/libstringlib.so: $(string-lib-objs:%.o=%.os)
 	$(CC) $(CFLAGS_ALL) $(LDFLAGS) -shared -o $@ $^
