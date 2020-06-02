@@ -1,5 +1,5 @@
 /*
- * memchr - find a character in a memory zone
+ * memrchr - find last character in a memory zone.
  *
  * Copyright (c) 2020, Arm Limited.
  * SPDX-License-Identifier: MIT
@@ -24,6 +24,8 @@
 #define shift		x6
 #define	tmp		x7
 #define wtmp		w7
+#define end		x8
+#define endm1		x9
 
 #define vrepchr		v0
 #define qdata		q1
@@ -43,31 +45,31 @@
    bits in the syndrome reflect the order in which things occur in the original
    string, counting trailing zeros identifies exactly which byte matched.  */
 
-ENTRY (__memchr_aarch64_mte)
-	bic	src, srcin, 15
+ENTRY (__memrchr_aarch64)
+	add	end, srcin, cntin
+	sub	endm1, end, 1
+	bic	src, endm1, 15
 	cbz	cntin, L(nomatch)
 	ld1	{vdata.16b}, [src]
 	dup	vrepchr.16b, chrin
 	mov	wtmp, 0xf00f
 	dup	vrepmask.8h, wtmp
 	cmeq	vhas_chr.16b, vdata.16b, vrepchr.16b
-	lsl	shift, srcin, 2
+	neg	shift, end, lsl 2
 	and	vhas_chr.16b, vhas_chr.16b, vrepmask.16b
 	addp	vend.16b, vhas_chr.16b, vhas_chr.16b            /* 128->64 */
 	fmov	synd, dend
-	lsr	synd, synd, shift
+	lsl	synd, synd, shift
 	cbz	synd, L(start_loop)
 
-	rbit	synd, synd
 	clz	synd, synd
-	add	result, srcin, synd, lsr 2
+	sub	result, endm1, synd, lsr 2
 	cmp	cntin, synd, lsr 2
 	csel	result, result, xzr, hi
 	ret
 
 L(start_loop):
-	sub	tmp, src, srcin
-	add	tmp, tmp, 16
+	sub	tmp, end, src
 	subs	cntrem, cntin, tmp
 	b.ls	L(nomatch)
 
@@ -77,14 +79,14 @@ L(start_loop):
 
 	.p2align 4
 L(loop32):
-	ldr	qdata, [src, 16]!
+	ldr	qdata, [src, -16]!
 	cmeq	vhas_chr.16b, vdata.16b, vrepchr.16b
 	umaxp	vend.16b, vhas_chr.16b, vhas_chr.16b		/* 128->64 */
 	fmov	synd, dend
 	cbnz	synd, L(end)
 
 L(loop32_2):
-	ldr	qdata, [src, 16]!
+	ldr	qdata, [src, -16]!
 	subs	cntrem, cntrem, 32
 	cmeq	vhas_chr.16b, vdata.16b, vrepchr.16b
 	b.ls	L(end)
@@ -95,20 +97,20 @@ L(end):
 	and	vhas_chr.16b, vhas_chr.16b, vrepmask.16b
 	addp	vend.16b, vhas_chr.16b, vhas_chr.16b		/* 128->64 */
 	fmov	synd, dend
-	add	tmp, srcin, cntin
-	sub	cntrem, tmp, src
-#ifndef __AARCH64EB__
+
+	add	tmp, src, 15
+#ifdef __AARCH64EB__
 	rbit	synd, synd
 #endif
 	clz	synd, synd
-	cmp	cntrem, synd, lsr 2
-	add	result, src, synd, lsr 2
-	csel	result, result, xzr, hi
+	sub	tmp, tmp, synd, lsr 2
+	cmp	tmp, srcin
+	csel	result, tmp, xzr, hs
 	ret
 
 L(nomatch):
 	mov	result, 0
 	ret
 
-END (__memchr_aarch64_mte)
+END (__memrchr_aarch64)
 
