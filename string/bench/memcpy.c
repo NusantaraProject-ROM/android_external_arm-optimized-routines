@@ -1,8 +1,8 @@
 /*
  * memcpy benchmark.
  *
- * Copyright (c) 2020-2021, Arm Limited.
- * SPDX-License-Identifier: MIT
+ * Copyright (c) 2020-2022, Arm Limited.
+ * SPDX-License-Identifier: MIT OR Apache-2.0 WITH LLVM-exception
  */
 
 #define _GNU_SOURCE
@@ -35,6 +35,9 @@ static const struct fun
   F(__memcpy_aarch64)
 # if __ARM_NEON
   F(__memcpy_aarch64_simd)
+# endif
+# if __ARM_FEATURE_SVE
+  F(__memcpy_aarch64_sve)
 # endif
 #elif __arm__
   F(__memcpy_arm)
